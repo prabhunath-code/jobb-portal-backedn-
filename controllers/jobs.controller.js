@@ -1,15 +1,32 @@
 import { Job } from "../models/job.model.js";
 
-// Admin creates the job
+
+
 export const postJob = async (req, res) => {
     try {
         const { title, description, requirements, salary, location, jobType, experience, position, companyId } = req.body;
         const userId = req.id;
 
-        // Check for missing fields
+        // Check for missing fields or invalid userId
         if (!title || !description || !requirements || !salary || !location || !jobType || !experience || !position || !companyId) {
             return res.status(400).json({
-                message: "Something is missing",
+                message: "All fields are required",
+                success: false
+            });
+        }
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated",
+                success: false
+            });
+        }
+
+        // Validate and transform data
+        const requirementsArray = typeof requirements === "string" ? requirements.split(",").map(r => r.trim()) : [];
+        const salaryNumber = Number(salary);
+        if (isNaN(salaryNumber)) {
+            return res.status(400).json({
+                message: "Salary must be a valid number",
                 success: false
             });
         }
@@ -18,12 +35,12 @@ export const postJob = async (req, res) => {
         const job = await Job.create({
             title,
             description,
-            requirements: requirements.split(","),
-            salary: Number(salary),
+            requirements: requirementsArray,
+            salary: salaryNumber,
             location,
             jobType,
             experienceLevel: experience,
-            position,
+            position: Number(position), // Ensure position is a number
             company: companyId,
             created_By: userId
         });
@@ -34,9 +51,14 @@ export const postJob = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.log(error);
+        console.error("Error creating job:", {
+            message: error.message,
+            stack: error.stack,
+            body: req.body,
+            userId: req.id
+        });
         return res.status(500).json({
-            message: "Server error",
+            message: error.message || "Server error",
             success: false
         });
     }
@@ -107,25 +129,27 @@ export const getJobByID = async (req, res) => {
 // Get all jobs created by admin
 export const getAdminJobs = async (req, res) => {
     try {
-        const adminId = req.id;
-        const jobs = await Job.find({ created_By: adminId });
-
-        if (!jobs.length) {
-            return res.status(404).json({
-                message: "No jobs found",
-                success: false
-            });
-        }
-
-        return res.status(200).json({
-            jobs,
-            success: true
+      const adminId = req.id;
+      const jobs = await Job.find({ created_By: adminId })
+        .populate("company")
+        .sort({ createdAt: -1 }); // Sort by createdAt descending
+  
+      if (!jobs.length) {
+        return res.status(404).json({
+          message: "No jobs found",
+          success: false,
         });
+      }
+  
+      return res.status(200).json({
+        jobs,
+        success: true,
+      });
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({
-            message: "Server error",
-            success: false
-        });
+      console.error("Error fetching admin jobs:", error);
+      return res.status(500).json({
+        message: "Server error",
+        success: false,
+      });
     }
-};
+  };
