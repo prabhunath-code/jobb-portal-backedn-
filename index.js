@@ -20,7 +20,7 @@ app.use(cookieParser());
 
 
 
-app.use(cors({ credentials: true, origin: 'http://localhost:5173' }));
+app.use(cors({ credentials: true, origin: 'https://job-portal-front-pgwn.vercel.app' }));
 
 const PORT = process.env.PORT || 3000;
 
